@@ -1,9 +1,14 @@
 local Config = {
+    Master = true,
+    Notify = true,
+    Theme = "Default",
+    TickRate = 0.05,
+
     PlayerName = "P217",
     GuiName = "FishingGui",
     FrameName = "Fishing",
     ButtonName = "ClickSpeedUpActive",
-    Notify = true,
+
     AutoClick = false,
     Delay = 0.3,
     Jitter = 0,
@@ -13,6 +18,26 @@ local Config = {
     UseInset = true,
     OffsetX = 0,
     OffsetY = 0,
+
+    Breakables = false,
+    BreakablePriority = "Crystal\nRock\nOre",
+    BreakableDelay = 0.35,
+    BreakableMethod = "Both",
+    BreakableHold = 0.03,
+    BreakableInset = true,
+    BreakableOffsetX = 0,
+    BreakableOffsetY = 0,
+
+    AutoPotions = false,
+    AutoFruits = false,
+    PotionNames = "",
+    FruitNames = "",
+    ConsumableDelay = 5,
+
+    AutoBuy = false,
+    MerchantNames = "",
+    BuyButtonName = "Buy",
+    MerchantDelay = 1,
 }
 
 local listeners = {}
@@ -38,6 +63,17 @@ function Config:OnChanged(key, callback)
         listeners[key] = list
     end
     list[#list + 1] = callback
+end
+
+function Config:Lines(key)
+    local out = {}
+    for line in string.gmatch(self[key] or "", "[^\r\n]+") do
+        local trimmed = line:match("^%s*(.-)%s*$")
+        if trimmed ~= "" and trimmed:sub(1, 2) ~= "--" then
+            out[#out + 1] = trimmed
+        end
+    end
+    return out
 end
 
 return Config

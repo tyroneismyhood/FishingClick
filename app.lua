@@ -1,115 +1,28 @@
 local Config = requirem("core/config")
-local Target = requirem("core/target")
-local Click = requirem("core/clicker")
 local Features = requirem("core/features")
+local Ui = requirem("core/ui")
+local Scheduler = requirem("core/scheduler")
 
+requirem("features/home")
 requirem("features/autoclick")
+requirem("features/breakables")
+requirem("features/consumables")
+requirem("features/merchants")
+requirem("features/target")
 
-local EZ = loadstring(game:HttpGet("https://raw.githubusercontent.com/akiradv/eazyuilib/main/eazyui.lua"))()
-local Window = EZ:CreateWindow({
-    Name = "Fishing",
-    SubTitle = "Hub",
-    Size = UDim2.fromOffset(560, 460),
-    ConfigId = "FishingHub",
-    MinimizeKey = Enum.KeyCode.RightShift,
-})
-
-local Main = Window:AddTab({ Title = "Main", Icon = "home" })
-local TargetTab = Window:AddTab({ Title = "Target", Icon = "crosshair" })
-local Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+local ctx = Ui.Mount(Config)
 
 for _, feature in ipairs(Features.All()) do
+    local spec = feature.Tab or { Title = feature.Id, Icon = "star" }
+    local tab = ctx.Window:AddTab(spec)
     if feature.Build then
-        feature.Build(Main)
+        feature.Build(tab, ctx)
     end
 end
 
-TargetTab:AddSection({ Title = "path" })
-TargetTab:AddInput({
-    Title = "Player",
-    Default = Config.PlayerName,
-    Flag = "PlayerName",
-    Callback = function(value)
-        Config.PlayerName = value
-        Target.Invalidate()
-    end,
-})
-TargetTab:AddInput({
-    Title = "ScreenGui",
-    Default = Config.GuiName,
-    Flag = "GuiName",
-    Callback = function(value)
-        Config.GuiName = value
-        Target.Invalidate()
-    end,
-})
-TargetTab:AddInput({
-    Title = "Frame",
-    Default = Config.FrameName,
-    Flag = "FrameName",
-    Callback = function(value)
-        Config.FrameName = value
-        Target.Invalidate()
-    end,
-})
-TargetTab:AddInput({
-    Title = "Button",
-    Default = Config.ButtonName,
-    Flag = "ButtonName",
-    Callback = function(value)
-        Config.ButtonName = value
-        Target.Invalidate()
-    end,
-})
-TargetTab:AddButton({
-    Title = "Print Found Button",
-    ButtonText = "Check",
-    Callback = function()
-        local button = Target.GetButton()
-        EZ:Notify({
-            Title = "Target",
-            Content = button and (button.ClassName .. " / " .. button.Name) or "Not found",
-            Style = button and "Success" or "Error",
-            Duration = 3,
-        })
-    end,
-})
-TargetTab:AddToggle({
-    Title = "Notifications",
-    Default = true,
-    Flag = "Notify",
-    Callback = function(value)
-        Config.Notify = value
-    end,
-})
+local settings = ctx.Window:AddTab({ Title = "Settings", Icon = "settings" })
+ctx.Window:BuildConfigSection(settings)
 
-Window:BuildConfigSection(Settings)
-
-Config:OnChanged("AutoClick", function(state)
-    if Config.Notify then
-        EZ:Notify({
-            Title = "Auto Click",
-            Content = state and "On" or "Off",
-            Style = state and "Success" or "Info",
-            Duration = 1.2,
-        })
-    end
-end)
-
-task.spawn(function()
-    while true do
-        local delay = Config.Delay
-        if Config.AutoClick then
-            local button = Target.GetButton()
-            if button then
-                Click(button, Config)
-            end
-            if Config.Jitter > 0 then
-                delay += math.random() * Config.Jitter
-            end
-        end
-        task.wait(delay)
-    end
-end)
+Scheduler.Start(Config, Features)
 
 return true

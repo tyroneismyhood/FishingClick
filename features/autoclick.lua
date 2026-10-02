@@ -1,17 +1,34 @@
 local Features = requirem("core/features")
 local Config = requirem("core/config")
+local Finder = requirem("core/finder")
+local Actions = requirem("core/actions")
+local Controls = requirem("core/controls")
+
+local keys = {
+    Method = "Method",
+    Delay = "Delay",
+    Jitter = "Jitter",
+    Hold = "Hold",
+    OffsetX = "OffsetX",
+    OffsetY = "OffsetY",
+    Inset = "UseInset",
+}
 
 Features.Register({
     Id = "AutoClick",
-    Build = function(tab)
-        tab:AddSection({ Title = "auto click" })
+    Tab = { Title = "Click", Icon = "zap" },
+    Build = function(tab, ctx)
+        tab:AddParagraph({
+            Title = "Speed button",
+            Content = "Clicks the ImageButton from the Target tab while it is on screen.",
+        })
         tab:AddToggle({
-            Title = "Enabled",
-            Description = "Press the ImageButton on an interval",
+            Title = "Auto Click",
             Default = false,
             Flag = "AutoClick",
             Callback = function(state)
                 Config:Set("AutoClick", state)
+                ctx.Notify("Auto Click", state and "On" or "Off", state and "Success" or "Info")
             end,
         })
         tab:AddKeybind({
@@ -22,86 +39,20 @@ Features.Register({
                 Config:Set("AutoClick", not Config.AutoClick)
             end,
         })
-        tab:AddSlider({
-            Title = "Delay",
-            Min = 0.05,
-            Max = 3,
-            Default = 0.3,
-            Step = 0.01,
-            Flag = "Delay",
-            Callback = function(value)
-                Config.Delay = value
-            end,
-        })
-        tab:AddSlider({
-            Title = "Jitter",
-            Min = 0,
-            Max = 1,
-            Default = 0,
-            Step = 0.01,
-            Flag = "Jitter",
-            Callback = function(value)
-                Config.Jitter = value
-            end,
-        })
-        tab:AddDropdown({
-            Title = "Method",
-            Values = { "Mouse", "Signal", "Both" },
-            Default = "Both",
-            Flag = "Method",
-            Callback = function(value)
-                Config.Method = value
-            end,
-        })
-        tab:AddSlider({
-            Title = "Hold",
-            Min = 0.01,
-            Max = 0.4,
-            Default = 0.03,
-            Step = 0.01,
-            Flag = "Hold",
-            Callback = function(value)
-                Config.Hold = value
-            end,
-        })
-        tab:AddSlider({
-            Title = "Offset X",
-            Min = -80,
-            Max = 80,
-            Default = 0,
-            Step = 1,
-            Flag = "OffsetX",
-            Callback = function(value)
-                Config.OffsetX = value
-            end,
-        })
-        tab:AddSlider({
-            Title = "Offset Y",
-            Min = -80,
-            Max = 80,
-            Default = 0,
-            Step = 1,
-            Flag = "OffsetY",
-            Callback = function(value)
-                Config.OffsetY = value
-            end,
-        })
-        tab:AddToggle({
-            Title = "Only If Visible",
-            Default = true,
-            Flag = "OnlyVisible",
-            Callback = function(value)
-                Config.OnlyVisible = value
-            end,
-        })
-        tab:AddToggle({
-            Title = "Topbar Inset",
-            Default = true,
-            Flag = "UseInset",
-            Callback = function(value)
-                Config.UseInset = value
-            end,
-        })
+        tab:AddSection({ Title = "timing" })
+        Controls.BindClick(tab, Config, keys)
+    end,
+    Tick = function()
+        if not Config.AutoClick then
+            return
+        end
+        if not Actions.Ready("click", Config.Delay, Config.Jitter) then
+            return
+        end
+        local button = Finder.ByPath(Config.GuiName, Config.FrameName, Config.ButtonName)
+        if button then
+            Actions.Press(button, Controls.Options(Config, keys))
+        end
     end,
 })
 

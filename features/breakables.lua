@@ -1,22 +1,45 @@
 local Features = requirem("core/features")
 local Config = requirem("core/config")
-local Finder = requirem("core/finder")
 local Actions = requirem("core/actions")
-local Controls = requirem("core/controls")
 
-local keys = {
-    Method = "BreakableMethod",
-    Delay = "BreakableDelay",
-    Hold = "BreakableHold",
-    OffsetX = "BreakableOffsetX",
-    OffsetY = "BreakableOffsetY",
-    Inset = "BreakableInset",
-}
-
+local Workspace = game:GetService("Workspace")
 local status
 
 local function selected()
     return Config:Lines("BreakablePriority")
+end
+
+local function findBreakable()
+    local names = selected()
+    if #names == 0 then
+        return nil
+    end
+    local rankOf = {}
+    for index, name in ipairs(names) do
+        local key = string.lower(name)
+        if not rankOf[key] then
+            rankOf[key] = index
+        end
+    end
+    local best, bestRank = nil, math.huge
+    for _, inst in ipairs(Workspace:GetDescendants()) do
+        local rank = rankOf[string.lower(inst.Name)]
+        if rank and rank < bestRank and (inst:IsA("Model") or inst:IsA("BasePart")) then
+            best = inst
+            bestRank = rank
+        end
+    end
+    return best
+end
+
+local function interact(inst)
+    -- Real break logic is not wired yet. Workspace scan and priority are ready.
+    local prompt = inst:FindFirstChildWhichIsA("ProximityPrompt", true)
+    local detector = inst:FindFirstChildWhichIsA("ClickDetector", true)
+    if prompt or detector then
+        return false, "found a prompt, waiting for break logic"
+    end
+    return false, "break logic not wired"
 end
 
 Features.Register({
@@ -24,8 +47,8 @@ Features.Register({
     Tab = { Title = "Breakables", Icon = "target" },
     Build = function(tab, ctx)
         tab:AddParagraph({
-            Title = "Priority",
-            Content = "One breakable name per line. The top line wins if several are on screen. Matching is the ImageButton name.",
+            Title = "Workspace",
+            Content = "One name per line. The top line wins. Matches Models and Parts in Workspace. Breaking itself is not wired yet.",
         })
         tab:AddToggle({
             Title = "Auto Break",
@@ -47,15 +70,24 @@ Features.Register({
         })
         status = tab:AddLabel("Last target: none")
         tab:AddButton({
-            Title = "Scan Once",
+            Title = "Scan Workspace",
             ButtonText = "Scan",
             Callback = function()
-                local button, name = Finder.FindPriority(Finder.GuiRoot(), selected())
-                ctx.Notify("Breakables", button and ("Found " .. name) or "Nothing in the list is visible", button and "Success" or "Error")
+                local inst = findBreakable()
+                ctx.Notify("Breakables", inst and (inst.ClassName .. " / " .. inst:GetFullName()) or "No name from the list is in Workspace", inst and "Success" or "Error")
             end,
         })
-        tab:AddSection({ Title = "timing" })
-        Controls.BindClick(tab, Config, keys)
+        tab:AddSlider({
+            Title = "Delay",
+            Min = 0.05,
+            Max = 3,
+            Default = Config.BreakableDelay,
+            Step = 0.01,
+            Flag = "BreakableDelay",
+            Callback = function(value)
+                Config.BreakableDelay = value
+            end,
+        })
     end,
     Tick = function()
         if not Config.Breakables then
@@ -64,12 +96,12 @@ Features.Register({
         if not Actions.Ready("break", Config.BreakableDelay, 0) then
             return
         end
-        local button, name = Finder.FindPriority(Finder.GuiRoot(), selected())
+        local inst = findBreakable()
         if status then
-            status:Set(button and ("Last target: " .. name) or "Last target: none")
+            status:Set(inst and ("Last target: " .. inst.Name) or "Last target: none")
         end
-        if button then
-            Actions.Press(button, Controls.Options(Config, keys))
+        if inst then
+            interact(inst)
         end
     end,
 })
